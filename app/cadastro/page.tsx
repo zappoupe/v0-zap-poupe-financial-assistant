@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
-import { verificarPermissaoEmail } from "@/app/actions/auth-check"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -33,30 +32,24 @@ export default function SignupPage() {
     setError("")
     setIsLoading(true)
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("As senhas não coincidem")
-      setIsLoading(false)
-      return
-    }
-
-    if (formData.password.length < 6) {
-      setError("A senha deve ter no mínimo 6 caracteres")
-      setIsLoading(false)
-      return
-    }
-
     try {
-      const check = await verificarPermissaoEmail(formData.email)
-      
-      if (!check.permitido) {
-         if (check.redirectUrl) {
-             window.location.href = check.redirectUrl
-             return
-         }
-         throw new Error("E-mail não encontrado. Adquira um plano primeiro.")
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error("As senhas não coincidem")
       }
 
-      const { error: signUpError } = await supabase.auth.signUp({
+      if (formData.password.length < 6) {
+        throw new Error("A senha deve ter no mínimo 6 caracteres")
+      }
+
+      const { data: emailExiste } = await supabase.rpc('verificar_email_cliente', {
+        email_check: formData.email
+      })
+
+      if (!emailExiste) {
+        throw new Error("E-mail não encontrado. Entre em contato com o suporte.")
+      }
+
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -67,15 +60,30 @@ export default function SignupPage() {
       })
 
       if (signUpError) throw signUpError
+      
+      if (!authData.user) {
+        throw new Error("Erro ao criar usuário")
+      }
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('dados_cliente')
-        .update({ nomewpp: formData.name })
+        .update({ 
+          nomewpp: formData.name,
+          user_id: authData.user.id
+        })
         .eq('email', formData.email)
 
+      if (updateError) {
+        console.error("Erro ao vincular user_id:", updateError)
+        throw new Error("Erro ao configurar conta. Tente fazer login.")
+      }
+
+      await supabase.auth.signOut()
+      
       router.push("/login?signup=success")
 
     } catch (err: any) {
+      console.error('Erro no cadastro:', err)
       setError(err.message || "Erro ao criar conta")
     } finally {
       setIsLoading(false)

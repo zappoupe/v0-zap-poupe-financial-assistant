@@ -4,11 +4,11 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { createClient } from "@/lib/supabase/client"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -20,12 +20,13 @@ export default function LoginPage() {
   })
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
-  
-  const supabase = createClient()
 
   useEffect(() => {
     if (searchParams.get('signup') === 'success') {
       setSuccess("Conta criada! Pode entrar.")
+    }
+    if (searchParams.get('error')) {
+      setError("Erro ao fazer login. Tente novamente.")
     }
   }, [searchParams])
 
@@ -40,23 +41,24 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const result = await signIn("credentials", {
         email: formData.email,
         password: formData.password,
+        redirect: false,
       })
 
-      if (error) throw error
-
-      router.refresh()
-      router.push("/dashboard")
-      
-    } catch (err: any) {
-      if (err.message.includes("Invalid login")) {
-        setError("E-mail ou senha incorretos.")
-      } else {
-        setError(err.message)
+      if (result?.error) {
+        setError("E-mail ou senha incorretos")
+        setIsLoading(false)
+        return
       }
-    } finally {
+
+      if (result?.ok) {
+        router.push("/dashboard")
+        router.refresh()
+      }
+    } catch (err: any) {
+      setError(err.message || "Erro ao fazer login")
       setIsLoading(false)
     }
   }
@@ -80,7 +82,15 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
-                <Input id="email" type="email" placeholder="seu@email.com" value={formData.email} onChange={handleChange} required className="h-11" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="seu@email.com" 
+                  value={formData.email} 
+                  onChange={handleChange} 
+                  required 
+                  className="h-11" 
+                />
               </div>
 
               <div className="space-y-2">
@@ -88,7 +98,15 @@ export default function LoginPage() {
                   <Label htmlFor="password">Senha</Label>
                   <Link href="/recuperar-acesso" className="text-xs text-primary hover:underline">Esqueceu a senha?</Link>
                 </div>
-                <Input id="password" type="password" placeholder="******" value={formData.password} onChange={handleChange} required className="h-11" />
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="******" 
+                  value={formData.password} 
+                  onChange={handleChange} 
+                  required 
+                  className="h-11" 
+                />
               </div>
 
               {error && <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}

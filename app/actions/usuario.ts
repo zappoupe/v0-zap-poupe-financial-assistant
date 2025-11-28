@@ -1,5 +1,7 @@
 'use server'
 
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
 export interface PerfilUsuario {
@@ -14,30 +16,26 @@ export interface PerfilUsuario {
 }
 
 export async function getPerfilUsuario(): Promise<PerfilUsuario | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) return null
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) return null
 
-  const { data } = await supabase
-    .from('dados_cliente')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
-  if (data) return data as PerfilUsuario
-
-  if (user.email) {
-     const { data: dataEmail } = await supabase
+    const supabase = await createClient()
+    
+    const { data, error } = await supabase
       .from('dados_cliente')
       .select('*')
-      .eq('email', user.email)
+      .eq('user_id', session.user.id)
       .single()
-      
-     if (dataEmail) return dataEmail as PerfilUsuario
-  }
 
-  return null
+    if (error || !data) return null
+
+    return data as PerfilUsuario
+  } catch (error) {
+    console.error('Erro ao buscar perfil:', error)
+    return null
+  }
 }
 
 export async function atualizarPerfil(formData: FormData) {

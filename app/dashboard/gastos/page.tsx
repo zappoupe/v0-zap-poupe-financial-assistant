@@ -27,9 +27,13 @@ export default async function GastosPage() {
           <CardContent>
             <div className="text-2xl font-bold">R$ {dados.totalAtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              <span className={dados.tendencia > 0 ? "text-red-500" : "text-green-500"}>
-                {dados.tendencia > 0 ? "+" : ""}{dados.tendencia.toFixed(1)}%
-              </span> vs mês anterior
+              {dados.totalAnterior > 0 ? (
+                <span className={dados.tendencia > 0 ? "text-red-500" : "text-green-500"}>
+                  {dados.tendencia > 0 ? "+" : ""}{dados.tendencia.toFixed(1)}% vs mês anterior
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Primeiro mês de registros</span>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -54,10 +58,12 @@ export default async function GastosPage() {
             <span className="text-2xl">📈</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              R$ {dados.disponivel.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            <div className={`text-2xl font-bold ${dados.disponivel >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              R$ {Math.abs(dados.disponivel).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Baseado nos limites por categoria</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {dados.disponivel >= 0 ? 'Dentro do orçamento' : 'Acima do orçamento'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -69,57 +75,61 @@ export default async function GastosPage() {
         </TabsList>
 
         <TabsContent value="categories" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {dados.categorias.length === 0 ? (
-                <p className="text-muted-foreground col-span-3 text-center py-10">Nenhum gasto registrado neste mês ainda.</p>
-            ) : (
-                dados.categorias.map((category) => {
+          {dados.categorias.length === 0 ? (
+            <Card>
+              <CardContent className="py-10">
+                <p className="text-muted-foreground text-center">Nenhum gasto registrado neste mês ainda.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {dados.categorias.map((category) => {
                 const isOverBudget = category.percent > 100
 
                 return (
-                    <Card key={category.category} className={isOverBudget ? "border-red-300 bg-red-50/50" : ""}>
+                  <Card key={category.category} className={isOverBudget ? "border-red-300 bg-red-50/50 dark:bg-red-950/20" : ""}>
                     <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
-                            <div
+                          <div
                             className="w-10 h-10 rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: `${category.color}20` }}
-                            >
+                          >
                             <span className="text-2xl">{category.icon}</span>
-                            </div>
-                            <div>
+                          </div>
+                          <div>
                             <h3 className="font-semibold">{category.category}</h3>
                             <p className="text-xs text-muted-foreground">{category.items} transações</p>
-                            </div>
+                          </div>
                         </div>
                         <div className="text-right">
-                            <div className="text-lg font-bold">R$ {category.value.toLocaleString("pt-BR")}</div>
+                          <div className="text-lg font-bold">R$ {category.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
                         </div>
-                        </div>
+                      </div>
 
-                        <div className="space-y-2">
+                      <div className="space-y-2">
                         <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
+                          <span className="text-muted-foreground">
                             R$ {category.value.toLocaleString("pt-BR")} de R$ {category.limit.toLocaleString("pt-BR")}
-                            </span>
-                            <Badge
+                          </span>
+                          <Badge
                             variant={isOverBudget ? "destructive" : category.percent > 90 ? "default" : "secondary"}
                             className="text-xs"
-                            >
+                          >
                             {category.percent.toFixed(0)}%
-                            </Badge>
+                          </Badge>
                         </div>
                         <Progress
-                            value={Math.min(category.percent, 100)}
-                            className={isOverBudget ? "[&>div]:bg-red-500" : ""}
+                          value={Math.min(category.percent, 100)}
+                          className={isOverBudget ? "[&>div]:bg-red-500" : ""}
                         />
-                        </div>
+                      </div>
                     </CardContent>
-                    </Card>
+                  </Card>
                 )
-                })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
@@ -129,35 +139,40 @@ export default async function GastosPage() {
               <CardDescription>Últimas movimentações de saída</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {dados.transacoes.map((t) => {
-                  return (
-                    <div
-                      key={t.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xl">
-                          📉
-                        </div>
-                        <div>
-                          <p className="font-medium">{t.descricao || 'Sem descrição'}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{new Date(t.data_hora).toLocaleDateString('pt-BR')}</span>
-                            <span>•</span>
-                            <Badge variant="outline" className="text-xs">
-                              {t.categoria}
-                            </Badge>
+              {dados.transacoes.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">Nenhuma transação registrada neste mês.</p>
+              ) : (
+                <div className="space-y-3">
+                  {dados.transacoes.map((t) => {
+                    const categoria = dados.categorias.find(c => c.category === t.categoria)
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xl">
+                            {categoria?.icon || '📉'}
+                          </div>
+                          <div>
+                            <p className="font-medium">{t.descricao || 'Sem descrição'}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{new Date(t.data_hora).toLocaleDateString('pt-BR')}</span>
+                              <span>•</span>
+                              <Badge variant="outline" className="text-xs">
+                                {t.categoria}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
+                        <div className="text-right">
+                          <p className="font-bold text-red-600">-R$ {Number(t.valor).toFixed(2)}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-red-600">-R$ {Number(t.valor).toFixed(2)}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

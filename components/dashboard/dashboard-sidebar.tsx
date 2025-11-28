@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
 
 const navigation = [
   { name: "Resumo Financeiro", href: "/dashboard", icon: "📊" },
@@ -20,32 +20,13 @@ const navigation = [
 export function DashboardSidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
-  const [userName, setUserName] = useState("Carregando...")
-  const [userInitials, setUserInitials] = useState("...")
-  
-  const supabase = createClient()
+  const { data: session } = useSession()
 
-  useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: perfil } = await supabase
-          .from('dados_cliente')
-          .select('nomewpp')
-          .eq('user_id', user.id)
-          .single()
-        
-        const name = perfil?.nomewpp || "Usuário"
-        setUserName(name)
-        setUserInitials(name.substring(0, 2).toUpperCase())
-      }
-    }
-    loadUser()
-  }, [])
+  const userName = session?.user?.name || "Usuário"
+  const userInitials = userName.substring(0, 2).toUpperCase()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.href = "/login"
+    await signOut({ callbackUrl: '/login' })
   }
 
   return (

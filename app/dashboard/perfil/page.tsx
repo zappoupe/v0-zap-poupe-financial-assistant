@@ -3,11 +3,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { getPerfilUsuario, atualizarPerfil } from "@/app/actions/usuario"
-import { redirect } from "next/navigation"
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +13,11 @@ export default async function PerfilPage() {
   const perfil = await getPerfilUsuario()
 
   if (!perfil) {
-    redirect('/login')
+    return (
+      <div className="flex-1 p-6">
+        <p>Carregando perfil...</p>
+      </div>
+    )
   }
 
   const hoje = new Date()
@@ -120,7 +122,7 @@ export default async function PerfilPage() {
               <TabsContent value="assinatura" className="space-y-6 mt-0">
                 <div>
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">Status do Plano</h3>
-                  <Card className={`border-l-4 ${isPremium ? 'border-l-green-500 bg-green-50/50' : 'border-l-red-500 bg-red-50/50'}`}>
+                  <Card className={`border-l-4 ${isPremium ? 'border-l-green-500 bg-green-50/50 dark:bg-green-950/20' : 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20'}`}>
                     <CardContent className="pt-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
@@ -137,7 +139,7 @@ export default async function PerfilPage() {
                       </div>
                       
                       {isPremium && (
-                        <p className="text-sm font-medium text-green-700 mb-4">
+                        <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-4">
                           Você tem {diasRestantes} dias restantes.
                         </p>
                       )}

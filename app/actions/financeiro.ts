@@ -1,6 +1,5 @@
 'use server'
 
-import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Transacao, DadosGraficoBarra, DadosGraficoPizza, EventoCalendario, DashboardData } from "@/types/financeiro"
 import { getPerfilUsuario } from "./usuario"
@@ -18,7 +17,13 @@ export async function getDadosDashboard(): Promise<DashboardData> {
   const perfil = await getPerfilUsuario()
   
   if (!perfil) {
-    redirect('/login')
+    return {
+      resumo: { saldo: 0, entradas: 0, saidas: 0, contagem: 0 },
+      transacoesRecentes: [],
+      graficoBarras: [],
+      graficoPizza: [],
+      eventosCalendario: []
+    }
   }
 
   try {
@@ -77,6 +82,7 @@ export async function getDadosDashboard(): Promise<DashboardData> {
         if (t.tipo === 'entrada') barra.entradas += Number(t.valor)
         else barra.saidas += Number(t.valor)
       } catch (e) {
+        console.error("Erro ao processar transação:", e)
       }
     })
     const graficoBarras = Array.from(barrasMap.values()).reverse()
@@ -103,7 +109,7 @@ export async function getDadosDashboard(): Promise<DashboardData> {
 
     const eventosLembretes: EventoCalendario[] = (lembretesData || []).map((l: any) => ({
       id: l.id + 100000,
-      type: 'alerta',
+      type: 'alerta' as const,
       title: l.descricao,
       date: new Date(l.data_hora)
     }))
@@ -129,11 +135,10 @@ export async function getDadosDashboard(): Promise<DashboardData> {
 }
 
 export async function criarLembrete(formData: FormData) {
-  'use server'
   const perfil = await getPerfilUsuario()
   
   if (!perfil) {
-    redirect('/login')
+    throw new Error('Usuário não autenticado')
   }
 
   const supabase = await createClient()
