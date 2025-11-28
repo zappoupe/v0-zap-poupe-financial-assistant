@@ -1,7 +1,5 @@
 'use server'
 
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
 export interface PerfilUsuario {
@@ -17,16 +15,15 @@ export interface PerfilUsuario {
 
 export async function getPerfilUsuario(): Promise<PerfilUsuario | null> {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) return null
-
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
+    if (authError || !user) return null
+
     const { data, error } = await supabase
       .from('dados_cliente')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single()
 
     if (error || !data) return null
@@ -40,6 +37,9 @@ export async function getPerfilUsuario(): Promise<PerfilUsuario | null> {
 
 export async function atualizarPerfil(formData: FormData) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autorizado')
+
   const telefone = formData.get('telefone') as string
   const nome = formData.get('nome') as string
 
@@ -47,6 +47,7 @@ export async function atualizarPerfil(formData: FormData) {
     .from('dados_cliente')
     .update({ nomewpp: nome })
     .eq('telefone', telefone)
+    .eq('user_id', user.id)
 
   if (error) throw new Error('Erro ao atualizar perfil')
 }

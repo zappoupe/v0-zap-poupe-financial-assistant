@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { logout } from "@/app/login/actions"
 
 const navigation = [
   { name: "Resumo Financeiro", href: "/dashboard", icon: "📊" },
@@ -17,17 +17,16 @@ const navigation = [
   { name: "Perfil do Usuário", href: "/dashboard/perfil", icon: "👤" },
 ]
 
-export function DashboardSidebar() {
+interface SidebarProps {
+  userName: string
+  userEmail: string
+}
+
+export function DashboardSidebar({ userName }: SidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
-  const { data: session } = useSession()
 
-  const userName = session?.user?.name || "Usuário"
   const userInitials = userName.substring(0, 2).toUpperCase()
-
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: '/login' })
-  }
 
   return (
     <>
@@ -96,14 +95,17 @@ export function DashboardSidebar() {
                 <p className="text-xs text-muted-foreground truncate">Premium</p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground hover:text-destructive"
-              onClick={handleLogout}
-            >
-              <span className="mr-3">🚪</span>
-              Sair
-            </Button>
+            
+            <form action={logout}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-muted-foreground hover:text-destructive"
+                type="submit"
+              >
+                <span className="mr-3">🚪</span>
+                Sair
+              </Button>
+            </form>
           </div>
         </div>
       </aside>

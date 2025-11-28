@@ -1,9 +1,20 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
 
 export async function DashboardHeader() {
-  const session = await getServerSession(authOptions)
+  const supabase = await createClient()
   
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  let nomeExibicao = 'Usuário'
+  if (user) {
+    const { data: perfil } = await supabase
+      .from('dados_cliente')
+      .select('nomewpp')
+      .eq('user_id', user.id)
+      .single()
+    if (perfil?.nomewpp) nomeExibicao = perfil.nomewpp
+  }
+
   const currentDate = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
     year: "numeric",
@@ -14,7 +25,7 @@ export async function DashboardHeader() {
   return (
     <div className="space-y-1">
       <h1 className="text-3xl font-bold text-balance">
-        Olá, {session?.user?.name || 'Usuário'}!
+        Olá, {nomeExibicao}!
       </h1>
       <p className="text-muted-foreground capitalize">{currentDate}</p>
     </div>

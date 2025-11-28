@@ -1,66 +1,25 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { signIn } from "next-auth/react"
+import { useTransition, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { login } from "./actions"
 
 export default function LoginPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  })
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (searchParams.get('signup') === 'success') {
-      setSuccess("Conta criada! Pode entrar.")
-    }
-    if (searchParams.get('error')) {
-      setError("Erro ao fazer login. Tente novamente.")
-    }
-  }, [searchParams])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.id]: e.target.value })
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setSuccess("")
-    setIsLoading(true)
-
-    try {
-      const result = await signIn("credentials", {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
-      })
-
+  const handleSubmit = (formData: FormData) => {
+    setError(null)
+    startTransition(async () => {
+      const result = await login(formData)
       if (result?.error) {
-        setError("E-mail ou senha incorretos")
-        setIsLoading(false)
-        return
+        setError(result.error)
       }
-
-      if (result?.ok) {
-        router.push("/dashboard")
-        router.refresh()
-      }
-    } catch (err: any) {
-      setError(err.message || "Erro ao fazer login")
-      setIsLoading(false)
-    }
+    })
   }
 
   return (
@@ -79,15 +38,14 @@ export default function LoginPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form action={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
                 <Input 
                   id="email" 
+                  name="email" 
                   type="email" 
                   placeholder="seu@email.com" 
-                  value={formData.email} 
-                  onChange={handleChange} 
                   required 
                   className="h-11" 
                 />
@@ -100,20 +58,26 @@ export default function LoginPage() {
                 </div>
                 <Input 
                   id="password" 
+                  name="password" 
                   type="password" 
                   placeholder="******" 
-                  value={formData.password} 
-                  onChange={handleChange} 
                   required 
                   className="h-11" 
                 />
               </div>
 
-              {error && <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">{error}</div>}
-              {success && <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 text-sm">{success}</div>}
+              {error && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                  {error}
+                </div>
+              )}
 
-              <Button type="submit" className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90" disabled={isLoading}>
-                {isLoading ? "Entrando..." : "Entrar"}
+              <Button 
+                type="submit" 
+                className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90" 
+                disabled={isPending}
+              >
+                {isPending ? "Entrando..." : "Entrar"}
               </Button>
 
               <div className="relative my-6">
