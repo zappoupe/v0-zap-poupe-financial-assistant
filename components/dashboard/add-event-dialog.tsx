@@ -7,10 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { criarLembrete } from "@/app/actions/financeiro" // Importar a Server Action
-import { toast } from "sonner" // Recomendação: usar toast para feedback (opcional)
+import { createClient } from "@/lib/supabase/client"
 
 interface AddEventDialogProps {
   open: boolean
@@ -23,50 +20,83 @@ export function AddEventDialog({ open, onOpenChange }: AddEventDialogProps) {
     type: "gasto",
     title: "",
     amount: "",
-    date: new Date().toISOString().split('T')[0], // Data de hoje padrão
-    category: "",
-    notes: "",
-    recurring: false,
-    recurringType: "monthly",
+    date: new Date().toISOString().split('T')[0],
+    category: "Outros",
   })
+
+  const supabase = createClient()
+
+  const getPerfilSeguro = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuário não autenticado.')
+
+    const { data: perfilRpc } = await supabase.rpc('get_meu_perfil')
+    if (perfilRpc) return perfilRpc
+
+    const { data: perfilEmail } = await supabase
+      .from('dados_cliente')
+      .select('telefone')
+      .eq('email', user.email)
+      .single()
+
+    if (perfilEmail) return { telefone: perfilEmail.telefone }
+    throw new Error('Perfil não encontrado.')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      // Criamos um FormData para enviar para a Server Action
-      const formData = new FormData()
-      formData.append('title', eventData.title)
-      formData.append('amount', eventData.amount)
-      formData.append('date', eventData.date)
-      formData.append('category', eventData.category)
-      formData.append('type', eventData.type)
+      const perfil = await getPerfilSeguro()
+      let error = null
+
+      if (eventData.type === 'alerta') {
+        const { error: err } = await supabase
+          .from('lembretes_registros')
+          .insert([{
+            descricao: eventData.title,
+            data_hora: eventData.date,
+            responsavel: perfil.telefone,
+            hr_inicio: "09:00:00",
+            hr_fim: "10:00:00",
+            antecedencia: "10 min"
+          }])
+        error = err
+      } else {
+        const tipoTransacao = eventData.type === 'receita' ? 'entrada' : 'saida'
+        const valor = parseFloat(eventData.amount || "0")
+        
+        const { error: err } = await supabase
+          .from('financeiro_registros')
+          .insert([{
+            descricao: eventData.title,
+            valor: valor,
+            tipo: tipoTransacao,
+            categoria: eventData.category || 'Outros',
+            data_hora: new Date(eventData.date).toISOString(),
+            responsavel: perfil.telefone
+          }])
+        error = err
+      }
+
+      if (error) throw error
       
-      // Chamada real ao banco de dados
-      await criarLembrete(formData)
-      
-      // Sucesso
-      onOpenChange(false)
-      // Resetar form
       setEventData({
         type: "gasto",
         title: "",
         amount: "",
         date: new Date().toISOString().split('T')[0],
-        category: "",
-        notes: "",
-        recurring: false,
-        recurringType: "monthly",
+        category: "Outros",
       })
-      alert("Evento criado com sucesso!") // Pode substituir por toast.success() se tiver sonner instalado
       
-      // Opcional: Forçar recarregamento da página para mostrar o novo item
-      window.location.reload() 
+      onOpenChange(false)
+      alert("Registro salvo com sucesso!")
+      window.location.reload()
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      alert("Erro ao criar evento. Tente novamente.")
+      alert(error.message || "Erro ao criar registro.")
     } finally {
       setIsLoading(false)
     }
@@ -76,29 +106,29 @@ export function AddEventDialog({ open, onOpenChange }: AddEventDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Adicionar Evento Financeiro</DialogTitle>
-          <DialogDescription>Registre gastos, receitas ou eventos futuros no calendário</DialogDescription>
+          <DialogTitle>Novo Registro</DialogTitle>
+          <DialogDescription>Adicione um gasto, receita ou lembrete</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="type">Tipo de Evento</Label>
+            <Label htmlFor="type">Tipo</Label>
             <Select value={eventData.type} onValueChange={(value) => setEventData({ ...eventData, type: value })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gasto">Gasto</SelectItem>
-                <SelectItem value="receita">Receita</SelectItem>
-                <SelectItem value="alerta">Alerta/Lembrete</SelectItem>
+                <SelectItem value="gasto">Gasto / Despesa</SelectItem>
+                <SelectItem value="receita">Receita / Entrada</SelectItem>
+                <SelectItem value="alerta">Apenas Lembrete</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="title">Título</Label>
+            <Label htmlFor="title">Descrição</Label>
             <Input
               id="title"
-              placeholder="Ex: Conta de luz, Salário"
+              placeholder={eventData.type === 'alerta' ? "Ex: Pagar luz" : "Ex: Mercado, Salário"}
               value={eventData.title}
               onChange={(e) => setEventData({ ...eventData, title: e.target.value })}
               required
@@ -106,18 +136,41 @@ export function AddEventDialog({ open, onOpenChange }: AddEventDialogProps) {
           </div>
 
           {(eventData.type === "gasto" || eventData.type === "receita") && (
-            <div className="space-y-2">
-              <Label htmlFor="amount">Valor (R$)</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={eventData.amount}
-                onChange={(e) => setEventData({ ...eventData, amount: e.target.value })}
-                required
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="amount">Valor (R$)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={eventData.amount}
+                  onChange={(e) => setEventData({ ...eventData, amount: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Select 
+                  value={eventData.category} 
+                  onValueChange={(value) => setEventData({ ...eventData, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Alimentação">Alimentação</SelectItem>
+                    <SelectItem value="Transporte">Transporte</SelectItem>
+                    <SelectItem value="Moradia">Moradia</SelectItem>
+                    <SelectItem value="Saúde">Saúde</SelectItem>
+                    <SelectItem value="Lazer">Lazer</SelectItem>
+                    <SelectItem value="Educação">Educação</SelectItem>
+                    <SelectItem value="Compras">Compras</SelectItem>
+                    <SelectItem value="Outros">Outros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
 
           <div className="space-y-2">
@@ -131,26 +184,6 @@ export function AddEventDialog({ open, onOpenChange }: AddEventDialogProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="category">Categoria</Label>
-            <Select
-              value={eventData.category}
-              onValueChange={(value) => setEventData({ ...eventData, category: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione uma categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Alimentação">Alimentação</SelectItem>
-                <SelectItem value="Transporte">Transporte</SelectItem>
-                <SelectItem value="Moradia">Moradia</SelectItem>
-                <SelectItem value="Saúde">Saúde</SelectItem>
-                <SelectItem value="Lazer">Lazer</SelectItem>
-                <SelectItem value="Outros">Outros</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="flex gap-3 pt-2">
             <Button
               type="button"
@@ -162,7 +195,7 @@ export function AddEventDialog({ open, onOpenChange }: AddEventDialogProps) {
               Cancelar
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isLoading}>
-              {isLoading ? "Salvando..." : "Adicionar"}
+              {isLoading ? "Salvando..." : "Salvar"}
             </Button>
           </div>
         </form>

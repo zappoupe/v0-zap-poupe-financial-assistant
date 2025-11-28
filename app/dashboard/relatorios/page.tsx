@@ -1,15 +1,26 @@
+'use client'
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { getDadosDashboard } from "@/app/actions/financeiro"
+import { useDashboard } from "@/hooks/use-dashboard"
 
-export const dynamic = 'force-dynamic'
-
-export default async function RelatoriosPage() {
-  const dados = await getDadosDashboard()
-  const { resumo } = dados
+export default function RelatoriosPage() {
+  const { data, loading } = useDashboard()
+  const { resumo } = data
 
   const taxaPoupanca = resumo.entradas > 0 
     ? ((resumo.entradas - resumo.saidas) / resumo.entradas) * 100 
     : 0
+
+  if (loading) {
+    return (
+      <div className="flex-1 space-y-6 p-6">
+        <div className="h-8 bg-muted animate-pulse rounded w-1/4 mb-6" />
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />)}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -24,7 +35,7 @@ export default async function RelatoriosPage() {
             <CardTitle className="text-sm font-medium">Receitas Totais</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">R$ {resumo.entradas.toLocaleString('pt-BR')}</div>
+            <div className="text-2xl font-bold text-blue-600">R$ {resumo.entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
           </CardContent>
         </Card>
 
@@ -33,7 +44,7 @@ export default async function RelatoriosPage() {
             <CardTitle className="text-sm font-medium">Gastos Totais</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">R$ {resumo.saidas.toLocaleString('pt-BR')}</div>
+            <div className="text-2xl font-bold text-red-600">R$ {resumo.saidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
           </CardContent>
         </Card>
 
@@ -42,7 +53,7 @@ export default async function RelatoriosPage() {
             <CardTitle className="text-sm font-medium">Saldo / Economia</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">R$ {resumo.saldo.toLocaleString('pt-BR')}</div>
+            <div className="text-2xl font-bold text-green-600">R$ {resumo.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
           </CardContent>
         </Card>
 
@@ -63,20 +74,26 @@ export default async function RelatoriosPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {dados.transacoesRecentes.map((t) => (
-              <div key={t.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className={`w-2 h-10 rounded-full ${t.tipo === 'entrada' ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <div>
-                    <p className="font-medium">{t.descricao}</p>
-                    <p className="text-sm text-muted-foreground">{new Date(t.data_hora).toLocaleDateString('pt-BR')} • {t.categoria}</p>
+            {data.transacoesRecentes.length === 0 ? (
+               <p className="text-center text-muted-foreground py-4">Nenhum registro encontrado.</p>
+            ) : (
+              data.transacoesRecentes.map((t) => (
+                <div key={t.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-2 h-10 rounded-full ${t.tipo === 'entrada' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div>
+                      <p className="font-medium">{t.descricao || "Sem descrição"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(t.data_hora).toLocaleDateString('pt-BR')} • {t.categoria}
+                      </p>
+                    </div>
                   </div>
+                  <span className={`font-bold ${t.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
+                    {t.tipo === 'entrada' ? '+' : '-'} R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
-                <span className={`font-bold ${t.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                  {t.tipo === 'entrada' ? '+' : '-'} R$ {Number(t.valor).toLocaleString('pt-BR')}
-                </span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,13 +1,26 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+'use client'
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { getDadosGastos } from "@/app/actions/gastos"
+import { useGastos } from "@/hooks/use-gastos"
 
-export const dynamic = 'force-dynamic'
+export default function GastosPage() {
+  const { data, loading } = useGastos()
 
-export default async function GastosPage() {
-  const dados = await getDadosGastos()
+  if (loading) {
+    return (
+      <div className="flex-1 space-y-6 p-6">
+        <div className="h-10 bg-muted animate-pulse rounded w-1/3 mb-6" />
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -25,11 +38,11 @@ export default async function GastosPage() {
             <span className="text-2xl">📉</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {dados.totalAtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+            <div className="text-2xl font-bold">R$ {data.totalAtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {dados.totalAnterior > 0 ? (
-                <span className={dados.tendencia > 0 ? "text-red-500" : "text-green-500"}>
-                  {dados.tendencia > 0 ? "+" : ""}{dados.tendencia.toFixed(1)}% vs mês anterior
+              {data.totalAnterior > 0 ? (
+                <span className={data.tendencia > 0 ? "text-red-500" : "text-green-500"}>
+                  {data.tendencia > 0 ? "+" : ""}{data.tendencia.toFixed(1)}% vs mês anterior
                 </span>
               ) : (
                 <span className="text-muted-foreground">Primeiro mês de registros</span>
@@ -44,10 +57,10 @@ export default async function GastosPage() {
             <span className="text-2xl">💰</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {dados.orcamentoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
-            <Progress value={(dados.totalAtual / dados.orcamentoTotal) * 100} className="mt-2" />
+            <div className="text-2xl font-bold">R$ {data.orcamentoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+            <Progress value={(data.totalAtual / data.orcamentoTotal) * 100} className="mt-2" />
             <p className="text-xs text-muted-foreground mt-1">
-              {((dados.totalAtual / dados.orcamentoTotal) * 100).toFixed(1)}% utilizado
+              {((data.totalAtual / data.orcamentoTotal) * 100).toFixed(1)}% utilizado
             </p>
           </CardContent>
         </Card>
@@ -58,11 +71,11 @@ export default async function GastosPage() {
             <span className="text-2xl">📈</span>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${dados.disponivel >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              R$ {Math.abs(dados.disponivel).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            <div className={`text-2xl font-bold ${data.disponivel >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              R$ {Math.abs(data.disponivel).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {dados.disponivel >= 0 ? 'Dentro do orçamento' : 'Acima do orçamento'}
+              {data.disponivel >= 0 ? 'Dentro do orçamento' : 'Acima do orçamento'}
             </p>
           </CardContent>
         </Card>
@@ -75,7 +88,7 @@ export default async function GastosPage() {
         </TabsList>
 
         <TabsContent value="categories" className="space-y-4">
-          {dados.categorias.length === 0 ? (
+          {data.categorias.length === 0 ? (
             <Card>
               <CardContent className="py-10">
                 <p className="text-muted-foreground text-center">Nenhum gasto registrado neste mês ainda.</p>
@@ -83,7 +96,7 @@ export default async function GastosPage() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {dados.categorias.map((category) => {
+              {data.categorias.map((category) => {
                 const isOverBudget = category.percent > 100
 
                 return (
@@ -139,12 +152,12 @@ export default async function GastosPage() {
               <CardDescription>Últimas movimentações de saída</CardDescription>
             </CardHeader>
             <CardContent>
-              {dados.transacoes.length === 0 ? (
+              {data.transacoes.length === 0 ? (
                 <p className="text-muted-foreground text-center py-4">Nenhuma transação registrada neste mês.</p>
               ) : (
                 <div className="space-y-3">
-                  {dados.transacoes.map((t) => {
-                    const categoria = dados.categorias.find(c => c.category === t.categoria)
+                  {data.transacoes.map((t) => {
+                    const categoria = data.categorias.find(c => c.category === t.categoria)
                     return (
                       <div
                         key={t.id}

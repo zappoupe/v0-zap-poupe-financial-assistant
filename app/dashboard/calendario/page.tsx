@@ -1,21 +1,32 @@
+'use client'
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { FinancialCalendar } from "@/components/dashboard/financial-calendar"
-import { getDadosDashboard } from "@/app/actions/financeiro"
 import { AddEventDialogWrapper } from "@/components/dashboard/add-event-dialog-wrapper"
+import { useCalendario } from "@/hooks/use-calendario"
 
-
-export const dynamic = 'force-dynamic'
-
-export default async function CalendarioPage() {
-  const dados = await getDadosDashboard()
+export default function CalendarioPage() {
+  const { eventos, loading, deletarEvento } = useCalendario()
 
   const currentMonth = new Date()
   const monthName = currentMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
-  const pagamentosPendentes = dados.eventosCalendario.filter(e => e.type === 'gasto' && e.date >= new Date()).length
-  const receitasMes = dados.eventosCalendario
+
+  const pagamentosPendentes = eventos.filter(e => 
+    e.type === 'gasto' && 
+    e.date >= new Date(new Date().setHours(0,0,0,0))
+  ).length
+
+  const receitasMes = eventos
     .filter(e => e.type === 'receita' && e.date.getMonth() === currentMonth.getMonth())
     .reduce((acc, curr) => acc + (curr.amount || 0), 0)
+
+  const handleDelete = async (id: number, type: string) => {
+    if (window.confirm("Tem certeza que deseja excluir este item?")) {
+      await deletarEvento(id, type)
+      alert("Excluído com sucesso!")
+    }
+  }
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -34,7 +45,15 @@ export default async function CalendarioPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <FinancialCalendar currentMonth={currentMonth} events={dados.eventosCalendario} />
+          {loading ? (
+            <div className="h-[400px] bg-muted animate-pulse rounded-lg" />
+          ) : (
+            <FinancialCalendar 
+              currentMonth={currentMonth} 
+              events={eventos} 
+              onDelete={handleDelete}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -44,7 +63,11 @@ export default async function CalendarioPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pagamentos Futuros</p>
-                <p className="text-2xl font-bold">{pagamentosPendentes}</p>
+                {loading ? (
+                  <div className="h-8 w-12 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold">{pagamentosPendentes}</p>
+                )}
               </div>
               <Badge variant="destructive">A vencer</Badge>
             </div>
@@ -55,7 +78,11 @@ export default async function CalendarioPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Receitas do Mês</p>
-                <p className="text-2xl font-bold">R$ {receitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                {loading ? (
+                  <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+                ) : (
+                  <p className="text-2xl font-bold">R$ {receitasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                )}
               </div>
               <Badge className="bg-primary text-primary-foreground">Previsto</Badge>
             </div>

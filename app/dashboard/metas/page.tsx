@@ -11,6 +11,7 @@ import { useMetas } from "@/hooks/use-metas"
 export default function MetasPage() {
   const { metas, loading, criarMeta, deletarMeta } = useMetas()
   const [submitting, setSubmitting] = useState(false)
+  
   const [formData, setFormData] = useState({
     titulo: "",
     valor_objetivo: "",
@@ -18,7 +19,6 @@ export default function MetasPage() {
     data_limite: "",
     categoria: "sonho"
   })
-
 
   const totalAlvo = metas.reduce((acc, m) => acc + Number(m.valor_objetivo), 0)
   const totalAtual = metas.reduce((acc, m) => acc + Number(m.valor_atual), 0)
@@ -28,7 +28,7 @@ export default function MetasPage() {
     e.preventDefault()
     setSubmitting(true)
     
-    await criarMeta({
+    const result = await criarMeta({
       titulo: formData.titulo,
       valor_objetivo: Number(formData.valor_objetivo),
       valor_atual: Number(formData.valor_atual || 0),
@@ -36,14 +36,27 @@ export default function MetasPage() {
       categoria: formData.categoria
     })
 
-    setFormData({
-      titulo: "",
-      valor_objetivo: "",
-      valor_atual: "",
-      data_limite: "",
-      categoria: "sonho"
-    })
+    if (result.success) {
+      alert("Meta criada com sucesso!")
+      setFormData({
+        titulo: "",
+        valor_objetivo: "",
+        valor_atual: "",
+        data_limite: "",
+        categoria: "sonho"
+      })
+    } else {
+      alert("Erro: " + result.error)
+    }
+
     setSubmitting(false)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Tem certeza que deseja excluir esta meta?")) {
+        const result = await deletarMeta(id)
+        if (result.success) alert("Meta excluída.")
+    }
   }
 
   return (
@@ -145,7 +158,7 @@ export default function MetasPage() {
                     variant="ghost" 
                     size="sm" 
                     className="text-destructive h-6 w-6 p-0 hover:bg-destructive/10"
-                    onClick={() => deletarMeta(meta.id)}
+                    onClick={() => handleDelete(meta.id)}
                   >
                     ✕
                   </Button>

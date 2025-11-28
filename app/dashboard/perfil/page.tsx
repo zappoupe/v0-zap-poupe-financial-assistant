@@ -1,3 +1,6 @@
+'use client'
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
@@ -5,23 +8,57 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { getPerfilUsuario, atualizarPerfil } from "@/app/actions/usuario"
+import { usePerfil } from "@/hooks/use-perfil"
+import { createClient } from "@/lib/supabase/client"
 
-export const dynamic = 'force-dynamic'
+export default function PerfilPage() {
+  const { perfil, loading, refetch } = usePerfil()
+  const [nome, setNome] = useState("")
+  const [saving, setSaving] = useState(false)
+  const supabase = createClient()
 
-export default async function PerfilPage() {
-  const perfil = await getPerfilUsuario()
+  useEffect(() => {
+    if (perfil) {
+      setNome(perfil.nomewpp || "")
+    }
+  }, [perfil])
 
-  if (!perfil) {
+  const handleSalvar = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      const { error } = await supabase
+        .from('dados_cliente')
+        .update({ nomewpp: nome })
+        .eq('id', perfil?.id)
+
+      if (error) throw error
+
+      alert("Perfil atualizado com sucesso!")
+      refetch() 
+    } catch (error: any) {
+      console.error("Erro ao atualizar:", error)
+      alert("Erro ao atualizar perfil")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="flex-1 p-6">
-        <p>Carregando perfil...</p>
+      <div className="flex-1 space-y-6 p-6">
+        <div className="h-8 bg-muted animate-pulse rounded w-1/4 mb-4" />
+        <div className="grid lg:grid-cols-4 gap-6">
+          <div className="h-64 bg-muted animate-pulse rounded-xl lg:col-span-1" />
+          <div className="h-64 bg-muted animate-pulse rounded-xl lg:col-span-3" />
+        </div>
       </div>
     )
   }
 
   const hoje = new Date()
-  const dataFimTrial = perfil.trial_ended ? new Date(perfil.trial_ended) : null
+  const dataFimTrial = perfil?.trial_ended ? new Date(perfil.trial_ended) : null
   const isPremium = dataFimTrial && dataFimTrial > hoje
   const diasRestantes = dataFimTrial ? Math.ceil((dataFimTrial.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) : 0
 
@@ -33,24 +70,25 @@ export default async function PerfilPage() {
       </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
+
         <Card className="lg:col-span-1">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-24 h-24 bg-primary text-primary-foreground text-2xl flex items-center justify-center rounded-full">
-                {perfil.nomewpp?.substring(0, 2).toUpperCase() || "US"}
+              <div className="w-24 h-24 bg-primary text-primary-foreground text-2xl flex items-center justify-center rounded-full font-bold">
+                {perfil?.nomewpp?.substring(0, 2).toUpperCase() || "US"}
               </div>
               <div>
-                <h3 className="font-semibold text-lg">{perfil.nomewpp}</h3>
-                <p className="text-sm text-muted-foreground">{perfil.telefone}</p>
+                <h3 className="font-semibold text-lg">{perfil?.nomewpp}</h3>
+                <p className="text-sm text-muted-foreground">{perfil?.telefone}</p>
               </div>
-              <div className={`px-3 py-1 rounded-full text-white ${isPremium ? 'bg-primary' : 'bg-gray-500'}`}>
+              <div className={`px-3 py-1 rounded-full text-white text-sm ${isPremium ? 'bg-primary' : 'bg-gray-500'}`}>
                 {isPremium ? 'Premium' : 'Gratuito'}
               </div>
               <Separator />
               <div className="w-full space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Status IA</span>
-                  <span className="font-medium">{perfil.atendimento_ia === 'ativo' ? '🟢 Ativo' : '🔴 Pausado'}</span>
+                  <span className="font-medium">{perfil?.atendimento_ia === 'ativo' ? '🟢 Ativo' : '🔴 Pausado'}</span>
                 </div>
               </div>
             </div>
@@ -67,24 +105,35 @@ export default async function PerfilPage() {
               </TabsList>
             </CardHeader>
             <CardContent className="space-y-6">
+              
               <TabsContent value="pessoal" className="space-y-6 mt-0">
-                <form action={atualizarPerfil}>
-                  <input type="hidden" name="telefone" value={perfil.telefone} />
+                <form onSubmit={handleSalvar}>
                   <div>
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">Informações Básicas</h3>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="nome">Nome no WhatsApp</Label>
-                        <Input id="nome" name="nome" defaultValue={perfil.nomewpp} />
+                        <Input 
+                          id="nome" 
+                          value={nome} 
+                          onChange={(e) => setNome(e.target.value)} 
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="telefone">Telefone Conectado</Label>
-                        <Input id="telefone" value={perfil.telefone} disabled className="bg-muted" />
+                        <Input 
+                          id="telefone" 
+                          value={perfil?.telefone || ''} 
+                          disabled 
+                          className="bg-muted opacity-70 cursor-not-allowed" 
+                        />
                       </div>
                     </div>
                   </div>
                   <div className="mt-6">
-                    <Button type="submit" className="bg-primary text-primary-foreground">Salvar Alterações</Button>
+                    <Button type="submit" className="bg-primary text-primary-foreground" disabled={saving}>
+                      {saving ? "Salvando..." : "Salvar Alterações"}
+                    </Button>
                   </div>
                 </form>
               </TabsContent>
@@ -93,7 +142,7 @@ export default async function PerfilPage() {
                 <div>
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">Notificações</h3>
                   <div className="space-y-4">
-                    <Card className="bg-muted/30">
+                    <Card className="bg-muted/30 border-none shadow-none">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
                           <div>
@@ -104,7 +153,7 @@ export default async function PerfilPage() {
                         </div>
                       </CardContent>
                     </Card>
-                    <Card className="bg-muted/30">
+                    <Card className="bg-muted/30 border-none shadow-none">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
                           <div>
@@ -133,7 +182,7 @@ export default async function PerfilPage() {
                               : 'Renove para continuar aproveitando todos os recursos do ZapPoupe.'}
                           </p>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-white ${isPremium ? 'bg-green-600' : 'bg-red-500'}`}>
+                        <div className={`px-3 py-1 rounded-full text-white text-sm ${isPremium ? 'bg-green-600' : 'bg-red-500'}`}>
                           {isPremium ? 'Ativo' : 'Inativo'}
                         </div>
                       </div>
@@ -145,7 +194,7 @@ export default async function PerfilPage() {
                       )}
 
                       {!isPremium && (
-                        <Button className="w-full sm:w-auto bg-primary text-primary-foreground">
+                        <Button className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
                           Renovar Agora
                         </Button>
                       )}

@@ -6,44 +6,44 @@ export function useMetas() {
   const [metas, setMetas] = useState<Meta[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+
   const getPerfilSeguro = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !user.email) throw new Error('Usuário não logado')
 
-    let { data: perfil, error } = await supabase
-      .from('dados_cliente')
-      .select('telefone, user_id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!perfil) {
-      const { data: perfilEmail } = await supabase
-        .from('dados_cliente')
-        .select('telefone, id')
-        .eq('email', user.email)
-        .single()
-
-      if (perfilEmail) {
-        console.log("Perfil encontrado por e-mail. Vinculando conta...")
-        
-        await supabase
-          .from('dados_cliente')
-          .update({ user_id: user.id })
-          .eq('email', user.email)
-        
-        perfil = { telefone: perfilEmail.telefone, user_id: user.id }
-      }
+    const { data: perfilData, error } = await supabase.rpc('get_meu_perfil')
+    
+    if (error) {
+      console.error("Erro RPC:", error)
+      throw new Error("Erro ao buscar perfil.")
     }
 
-    if (!perfil) throw new Error('Perfil não encontrado. Contate o suporte.')
+    if (perfilData) return perfilData
+
+    const { data: perfilEmail } = await supabase
+      .from('dados_cliente')
+      .select('telefone, user_id')
+      .eq('email', user.email)
+      .single()
+
+    if (perfilEmail) {
+        if (!perfilEmail.user_id) {
+            await supabase
+              .from('dados_cliente')
+              .update({ user_id: user.id })
+              .eq('email', user.email)
+        }
+        return perfilEmail
+    }
     
-    return perfil
+    throw new Error('Perfil não encontrado.')
   }
 
   const fetchMetas = useCallback(async () => {
     try {
       setLoading(true)
       const perfil = await getPerfilSeguro()
+
       const { data, error } = await supabase
         .from('financeiro_metas')
         .select('*')
@@ -77,7 +77,6 @@ export function useMetas() {
       return { success: true }
     } catch (error: any) {
       console.error("Erro ao criar meta:", error)
-      alert(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -90,9 +89,12 @@ export function useMetas() {
         .eq('id', id)
 
       if (error) throw error
+      
       setMetas(current => current.filter(m => m.id !== id))
-    } catch (error) {
+      return { success: true }
+    } catch (error: any) {
       console.error('Erro ao deletar:', error)
+      return { success: false }
     }
   }
 
