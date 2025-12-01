@@ -3,7 +3,7 @@ export interface Transacao {
   data_hora: string
   responsavel: string
   categoria: string
-  tipo: 'entrada' | 'saida'
+  tipo: 'entrada' | 'saida' | 'receita' | 'despesa'
   valor: number
   descricao: string
   criado_em?: string

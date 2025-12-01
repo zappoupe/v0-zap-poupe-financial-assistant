@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { logout } from "@/app/login/actions"
 
+// REMOVIDO: "Gastos Detalhados"
 const navigation = [
   { name: "Resumo Financeiro", href: "/dashboard", icon: "📊" },
-  { name: "Gastos Detalhados", href: "/dashboard/gastos", icon: "📉" },
   { name: "Relatórios & Análises", href: "/dashboard/relatorios", icon: "📄" },
   { name: "Calendário Financeiro", href: "/dashboard/calendario", icon: "📅" },
   { name: "Metas & Projeções", href: "/dashboard/metas", icon: "🎯" },

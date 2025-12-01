@@ -16,6 +16,7 @@ export function FinancialCalendar({ currentMonth, events, onDelete }: FinancialC
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDay = new Date(year, month, 1).getDay()
   const eventsByDay: Record<number, EventoCalendario[]> = {}
+  
   events.forEach(event => {
     if (event.date.getMonth() === month && event.date.getFullYear() === year) {
       const day = event.date.getDate()
@@ -49,17 +50,21 @@ export function FinancialCalendar({ currentMonth, events, onDelete }: FinancialC
               title={event.title}
             >
               <span className="truncate pr-4">{event.title}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (confirm('Tem certeza que deseja excluir este item?')) {
-                    onDelete(event.id, event.type)
-                  }
-                }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-black/10 dark:hover:bg-white/10 rounded-sm p-0.5 transition-all"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              
+              {/* CORREÇÃO: Botão de excluir visível APENAS para lembretes */}
+              {event.type === 'alerta' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (confirm('Tem certeza que deseja excluir este lembrete?')) {
+                      onDelete(event.id, event.type)
+                    }
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-black/10 dark:hover:bg-white/10 rounded-sm p-0.5 transition-all"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           ))}
           

@@ -62,10 +62,15 @@ export async function getDadosDashboard(): Promise<DashboardData> {
     
     const resumo = transacoes.reduce((acc, t) => {
       const valor = Number(t.valor)
-      if (t.tipo === 'entrada') acc.entradas += valor
-      else acc.saidas += valor
+      if (t.tipo === 'entrada' || t.tipo === 'receita') {
+        acc.entradas += valor
+      } else {
+        acc.saidas += valor
+      }
+      acc.contagem++
       return acc
     }, { saldo: 0, entradas: 0, saidas: 0, contagem: 0 })
+    
     resumo.saldo = resumo.entradas - resumo.saidas
 
     const barrasMap = new Map<string, DadosGraficoBarra>()
@@ -79,8 +84,11 @@ export async function getDadosDashboard(): Promise<DashboardData> {
         }
         
         const barra = barrasMap.get(mes)!
-        if (t.tipo === 'entrada') barra.entradas += Number(t.valor)
-        else barra.saidas += Number(t.valor)
+        if (t.tipo === 'entrada' || t.tipo === 'receita') {
+          barra.entradas += Number(t.valor)
+        } else {
+          barra.saidas += Number(t.valor)
+        }
       } catch (e) {
         console.error("Erro ao processar transação:", e)
       }
@@ -88,11 +96,14 @@ export async function getDadosDashboard(): Promise<DashboardData> {
     const graficoBarras = Array.from(barrasMap.values()).reverse()
 
     const pizzaMap = new Map<string, number>()
-    transacoes.filter(t => t.tipo === 'saida').forEach(t => {
-      const cat = t.categoria || 'Outros'
-      const atual = pizzaMap.get(cat) || 0
-      pizzaMap.set(cat, atual + Number(t.valor))
-    })
+    transacoes
+      .filter(t => t.tipo === 'saida' || t.tipo === 'despesa')
+      .forEach(t => {
+        const cat = t.categoria || 'Outros'
+        const atual = pizzaMap.get(cat) || 0
+        pizzaMap.set(cat, atual + Number(t.valor))
+      })
+      
     const graficoPizza: DadosGraficoPizza[] = Array.from(pizzaMap.entries()).map(([name, value]) => ({
       name,
       value,
@@ -101,7 +112,7 @@ export async function getDadosDashboard(): Promise<DashboardData> {
 
     const eventosTransacoes: EventoCalendario[] = transacoes.map(t => ({
       id: t.id,
-      type: t.tipo === 'entrada' ? 'receita' : 'gasto',
+      type: (t.tipo === 'entrada' || t.tipo === 'receita') ? 'receita' : 'gasto',
       title: t.descricao || 'Sem descrição',
       amount: Number(t.valor),
       date: new Date(t.data_hora)

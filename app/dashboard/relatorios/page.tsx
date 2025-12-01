@@ -1,15 +1,27 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { useDashboard } from "@/hooks/use-dashboard"
+import { X } from "lucide-react"
 
 export default function RelatoriosPage() {
-  const { data, loading } = useDashboard()
+  const { data, loading, deleteTransaction } = useDashboard()
   const { resumo } = data
 
   const taxaPoupanca = resumo.entradas > 0 
     ? ((resumo.entradas - resumo.saidas) / resumo.entradas) * 100 
     : 0
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Tem certeza que deseja excluir permanentemente este registro?")) {
+      const result = await deleteTransaction(id)
+      if (result.success) {
+      } else {
+        alert("Erro ao excluir: " + result.error)
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -77,22 +89,36 @@ export default function RelatoriosPage() {
             {data.transacoesRecentes.length === 0 ? (
                <p className="text-center text-muted-foreground py-4">Nenhum registro encontrado.</p>
             ) : (
-              data.transacoesRecentes.map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-2 h-10 rounded-full ${t.tipo === 'entrada' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <div>
-                      <p className="font-medium">{t.descricao || "Sem descrição"}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(t.data_hora).toLocaleDateString('pt-BR')} • {t.categoria}
-                      </p>
+              data.transacoesRecentes.map((t) => {
+                const isEntrada = t.tipo === 'entrada' || t.tipo === 'receita'
+                
+                return (
+                  <div key={t.id} className="group flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors relative pr-12">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-2 h-10 rounded-full ${isEntrada ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div>
+                        <p className="font-medium">{t.descricao || "Sem descrição"}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(t.data_hora).toLocaleDateString('pt-BR')} • {t.categoria}
+                        </p>
+                      </div>
                     </div>
+                    <span className={`font-bold ${isEntrada ? 'text-green-600' : 'text-red-600'}`}>
+                      {isEntrada ? '+' : '-'} R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleDelete(t.id)}
+                      title="Excluir registro"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <span className={`font-bold ${t.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                    {t.tipo === 'entrada' ? '+' : '-'} R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </CardContent>

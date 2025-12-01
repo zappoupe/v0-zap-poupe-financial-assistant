@@ -25,7 +25,7 @@ export function useCalendario() {
 
       const eventosTransacoes: EventoCalendario[] = transacoes.map((t: any) => ({
         id: t.id,
-        type: t.tipo === 'entrada' ? 'receita' : 'gasto',
+        type: (t.tipo === 'entrada' || t.tipo === 'receita') ? 'receita' : 'gasto',
         title: t.descricao || 'Sem descrição',
         amount: Number(t.valor),
         date: new Date(t.data_hora)
@@ -48,25 +48,21 @@ export function useCalendario() {
   }, [supabase])
 
   const deletarEvento = async (id: number, type: string) => {
+    // BLOQUEIO DE SEGURANÇA: Impede exclusão de dados financeiros
+    if (type !== 'alerta') {
+      alert("Apenas lembretes podem ser removidos pelo calendário.")
+      return { success: false }
+    }
+
     try {
-      let error = null
-
-      if (type === 'alerta') {
-
-        const realId = id - 1000000
-        const { error: err } = await supabase
-          .from('lembretes_registros')
-          .delete()
-          .eq('id', realId)
-        error = err
-      } else {
-
-        const { error: err } = await supabase
-          .from('financeiro_registros')
-          .delete()
-          .eq('id', id)
-        error = err
-      }
+      // O ID do lembrete no frontend tem +1.000.000 para não colidir com transações.
+      // Subtraímos aqui para achar o ID real no banco.
+      const realId = id - 1000000
+      
+      const { error } = await supabase
+        .from('lembretes_registros')
+        .delete()
+        .eq('id', realId)
 
       if (error) throw error
 
@@ -74,7 +70,7 @@ export function useCalendario() {
       return { success: true }
 
     } catch (error: any) {
-      console.error('Erro ao deletar evento:', error)
+      console.error('Erro ao deletar lembrete:', error)
       alert("Erro ao excluir: " + error.message)
       return { success: false }
     }

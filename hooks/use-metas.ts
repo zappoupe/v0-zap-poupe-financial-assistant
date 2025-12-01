@@ -7,42 +7,49 @@ export function useMetas() {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  const getPerfilSeguro = async () => {
+  // Função auxiliar robusta para identificar o usuário
+  const getPerfil = async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !user.email) throw new Error('Usuário não logado')
+    if (!user) throw new Error('Usuário não autenticado')
 
-    const { data: perfilData, error } = await supabase.rpc('get_meu_perfil')
-    
-    if (error) {
-      console.error("Erro RPC:", error)
-      throw new Error("Erro ao buscar perfil.")
-    }
-
-    if (perfilData) return perfilData
-
-    const { data: perfilEmail } = await supabase
+    // Tentativa 1: Busca direta pelo ID (Padrão)
+    // Usamos maybeSingle() para evitar o erro 406 se não encontrar
+    let { data: perfil } = await supabase
       .from('dados_cliente')
-      .select('telefone, user_id')
-      .eq('email', user.email)
-      .single()
+      .select('telefone')
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-    if (perfilEmail) {
-        if (!perfilEmail.user_id) {
-            await supabase
-              .from('dados_cliente')
-              .update({ user_id: user.id })
-              .eq('email', user.email)
-        }
-        return perfilEmail
+    // Tentativa 2: Se não achou pelo ID, tenta pelo Email (Recuperação)
+    if (!perfil && user.email) {
+      console.log("Tentando recuperar perfil por e-mail...")
+      
+      const { data: perfilEmail } = await supabase
+        .from('dados_cliente')
+        .select('telefone, id')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      if (perfilEmail) {
+        // Se achou pelo email, faz o vínculo do ID para o futuro
+        await supabase
+          .from('dados_cliente')
+          .update({ user_id: user.id })
+          .eq('email', user.email)
+        
+        perfil = { telefone: perfilEmail.telefone }
+      }
     }
+
+    if (!perfil) throw new Error('Perfil não encontrado')
     
-    throw new Error('Perfil não encontrado.')
+    return { user, perfil }
   }
 
   const fetchMetas = useCallback(async () => {
     try {
       setLoading(true)
-      const perfil = await getPerfilSeguro()
+      const { perfil } = await getPerfil()
 
       const { data, error } = await supabase
         .from('financeiro_metas')
@@ -62,13 +69,17 @@ export function useMetas() {
 
   const criarMeta = async (novaMeta: any) => {
     try {
-      const perfil = await getPerfilSeguro()
+      const { perfil } = await getPerfil()
 
       const { error } = await supabase.from('financeiro_metas').insert([{
-        ...novaMeta,
-        responsavel: perfil.telefone,
+        titulo: novaMeta.titulo,
+        valor_objetivo: novaMeta.valor_objetivo,
+        valor_atual: novaMeta.valor_atual || 0,
+        data_limite: novaMeta.data_limite,
+        categoria: novaMeta.categoria,
+        icone: 'Target',
         status: 'em_progresso',
-        icone: 'Target'
+        responsavel: perfil.telefone
       }])
 
       if (error) throw error
