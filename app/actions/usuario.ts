@@ -51,3 +51,25 @@ export async function atualizarPerfil(formData: FormData) {
 
   if (error) throw new Error('Erro ao atualizar perfil')
 }
+
+export async function atualizarSenha(formData: FormData) {
+  const supabase = await createClient()
+  const password = formData.get('password') as string
+  const confirmPassword = formData.get('confirmPassword') as string
+
+  if (password !== confirmPassword) {
+    return { error: 'As senhas não coincidem' }
+  }
+
+  if (password.length < 6) {
+    return { error: 'A senha deve ter no mínimo 6 caracteres' }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
+}

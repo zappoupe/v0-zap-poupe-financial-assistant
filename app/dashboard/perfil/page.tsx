@@ -10,11 +10,14 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { usePerfil } from "@/hooks/use-perfil"
 import { createClient } from "@/lib/supabase/client"
+import { atualizarSenha } from "@/app/actions/usuario"
 
 export default function PerfilPage() {
   const { perfil, loading, refetch } = usePerfil()
   const [nome, setNome] = useState("")
   const [saving, setSaving] = useState(false)
+  const [passData, setPassData] = useState({ password: "", confirmPassword: "" })
+  const [passLoading, setPassLoading] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -38,11 +41,30 @@ export default function PerfilPage() {
       alert("Perfil atualizado com sucesso!")
       refetch() 
     } catch (error: any) {
-      console.error("Erro ao atualizar:", error)
+      console.error(error)
       alert("Erro ao atualizar perfil")
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSenha = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPassLoading(true)
+    
+    const formData = new FormData()
+    formData.append('password', passData.password)
+    formData.append('confirmPassword', passData.confirmPassword)
+
+    const result = await atualizarSenha(formData)
+
+    if (result?.error) {
+      alert(result.error)
+    } else {
+      alert("Senha alterada com sucesso!")
+      setPassData({ password: "", confirmPassword: "" })
+    }
+    setPassLoading(false)
   }
 
   if (loading) {
@@ -98,8 +120,9 @@ export default function PerfilPage() {
         <Card className="lg:col-span-3">
           <Tabs defaultValue="pessoal">
             <CardHeader>
-              <TabsList className="grid grid-cols-3 w-full max-w-2xl">
+              <TabsList className="grid grid-cols-4 w-full max-w-2xl">
                 <TabsTrigger value="pessoal">Pessoal</TabsTrigger>
+                <TabsTrigger value="seguranca">Segurança</TabsTrigger>
                 <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
                 <TabsTrigger value="assinatura">Assinatura</TabsTrigger>
               </TabsList>
@@ -133,6 +156,41 @@ export default function PerfilPage() {
                   <div className="mt-6">
                     <Button type="submit" className="bg-primary text-primary-foreground" disabled={saving}>
                       {saving ? "Salvando..." : "Salvar Alterações"}
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="seguranca" className="space-y-6 mt-0">
+                <form onSubmit={handleSenha}>
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Alterar Senha</h3>
+                    <div className="grid gap-4 max-w-sm">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">Nova Senha</Label>
+                        <Input 
+                          id="new-password" 
+                          type="password"
+                          value={passData.password} 
+                          onChange={(e) => setPassData({...passData, password: e.target.value})} 
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
+                        <Input 
+                          id="confirm-password" 
+                          type="password"
+                          value={passData.confirmPassword} 
+                          onChange={(e) => setPassData({...passData, confirmPassword: e.target.value})} 
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <Button type="submit" className="bg-primary text-primary-foreground" disabled={passLoading}>
+                      {passLoading ? "Alterando..." : "Atualizar Senha"}
                     </Button>
                   </div>
                 </form>
